@@ -1,9 +1,10 @@
-import os
+from cmath import tau
 from datetime import datetime
-import gym
+import gym,os
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.distributions import Categorical, MultivariateNormal
 from torch.utils.tensorboard import SummaryWriter
 
@@ -14,8 +15,8 @@ env_name = "SPMsEnv-v0"  # 定义自己的环境名称
 max_ep_len = 100  # max timesteps in one episode
 max_training_timesteps = int(3e4)  # break training loop if timeteps > max_training_timesteps
 
-print_freq = max_ep_len / 10  # print avg reward in the interval (in num timesteps)
-save_model_freq = int(1e3)  # save model frequency (in num timesteps)
+print_freq = max_ep_len * 2  # print avg reward in the interval (in num timesteps)
+save_model_freq = int(1e4)  # save model frequency (in num timesteps)
 
 #####################################################
 
@@ -23,7 +24,7 @@ save_model_freq = int(1e3)  # save model frequency (in num timesteps)
 
 ################ PPO hyperparameters ################
 
-update_timestep = max_ep_len  # update policy every n timesteps
+update_timestep = max_ep_len * 10  # update policy every n timesteps
 K_epochs = 80  # update policy for K epochs in one PPO update
 
 eps_clip = 0.2  # clip parameter for PPO
@@ -151,21 +152,39 @@ class ActorCritic(nn.Module):
     def forward(self):
         raise NotImplementedError
 
+    def softmax(self,X):
+        X_exp = X.exp() 
+        partition = X_exp.sum(dim=0, keepdim=True) 
+        return X_exp / partition # 这⾥应⽤了⼴播机制
+
     def act(self, state):
-        
+        output = self.actor(state)
+        output_agent = torch.sigmoid(output[0:3])
+        rou_agents = env.return_tau_agent()
+        box = torch.tensor([0,0,0])
+        for i in rou_agents:
+            box[i] = 1
+        output_agent *= box
+        agent_probs = self.softmax(output_agent)
+        agent = np.argmax(agent_probs)
 
-        action_probs = self.actor(state)
-        dist = Categorical(action_probs)
-
-        action = dist.sample()
-        action_logprob = dist.log_prob(action)
-        
+        price = torch.tanh(output[3:])
+        action_logprob = agent_probs[agent.item()]
+        action = torch.cat([agent.unsqueeze(0),price],dim = 0)
         return action.detach(), action_logprob.detach()
 
     def evaluate(self, state, action):
-        action_probs = self.actor(state)
-        dist = Categorical(action_probs)
-        action_logprobs = dist.log_prob(action)
+        #不能使用广播机制
+        output = self.actor(state)
+        indices = torch.tensor([0,1,2])
+        agent_probs = torch.index_select(output, dim=1,index = indices) 
+        agent_probs = torch.softmax(agent_probs,dim=0)
+
+        dist = Categorical(agent_probs)
+
+        indices = torch.tensor(0)
+        action_pool = torch.index_select(action, dim = 1, index = indices)
+        action_logprobs = dist.log_prob(action_pool)
         dist_entropy = dist.entropy()
         state_values = self.critic(state)
 
@@ -279,12 +298,11 @@ def train():
         print('Network Initilized.')
     else:
         ppo_agent.load(checkpoint_path)
-        print("PPO has been loaded!")
+        print("PPO model has been loaded!")
 
     # printing and logging variables
     print_running_reward = 0
-    print_running_episodes = 1
-
+    print_running_episodes = 0
 
     time_step = 0
     i_episode = 0
@@ -298,7 +316,8 @@ def train():
         for t in range(1, max_ep_len + 1):
 
             # select action with policy
-            state, reward, done, info = ppo_agent.select_action(state)
+            action = ppo_agent.select_action(state)
+            state, reward, done, _ = env.step(action)
 
             # saving reward and is_terminals
             ppo_agent.buffer.rewards.append(reward)  # 保存收益
@@ -333,10 +352,8 @@ def train():
 
             # break; if the episode is over
             if done:
-                time = state[0]
-                time_to_write = round(float(time), 3)
-                writer.add_scalar('info/PPO_makespan', time_to_write, global_step=i_episode)
-                writer.add_scalar('info/PPO_Sum_reward', current_ep_reward, global_step=i_episode)
+                socialwelfare = env.return_socialwelfare()
+                writer.add_scalar('info/PPO_SW', socialwelfare, global_step=i_episode)
                 break
 
         print_running_reward += current_ep_reward
