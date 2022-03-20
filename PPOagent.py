@@ -1,4 +1,3 @@
-from cmath import tau
 from datetime import datetime
 import gym,os
 import numpy as np
@@ -6,112 +5,82 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical, MultivariateNormal
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 
-writer = SummaryWriter(comment='Workflow scheduler Reward Record')
+# writer = SummaryWriter(comment='Workflow scheduler Reward Record')
 print("============================================================================================")
 ####### initialize environment hyperparameters ######
 env_name = "SPMsEnv-v0"  # 定义自己的环境名称
 max_ep_len = 100  # max timesteps in one episode
 max_training_timesteps = int(3e4)  # break training loop if timeteps > max_training_timesteps
-
 print_freq = max_ep_len * 2  # print avg reward in the interval (in num timesteps)
 save_model_freq = int(1e4)  # save model frequency (in num timesteps)
 
+action_std = 0.6                    # starting std for action distribution (Multivariate Normal)
+action_std_decay_rate = 0.05        # linearly decay action_std (action_std = action_std - action_std_decay_rate)
+min_action_std = 0.1                # minimum action_std (stop decay after action_std <= min_action_std)
+action_std_decay_freq = int(2.5e5)  # action_std decay frequency (in num timesteps)
 #####################################################
 
 ## Note : print frequencies should be > than max_ep_len
 
 ################ PPO hyperparameters ################
-
 update_timestep = max_ep_len * 10  # update policy every n timesteps
 K_epochs = 80  # update policy for K epochs in one PPO update
-
 eps_clip = 0.2  # clip parameter for PPO
 gamma = 0.99  # discount factor
-
 lr_actor = 0.0003  # learning rate for actor network
 lr_critic = 0.001  # learning rate for critic network
-
 #####################################################
-
 print("training environment name : " + env_name)
-
 env = gym.make(env_name).unwrapped
-
 state_dim,action_dim = env.return_dim_info()
-
 ################### checkpointing ###################
-
-run_num_pretrained = 'SPMs'  #### change this to prevent overwriting weights in same env_name folder
-
+run_num_pretrained = 'SPMs20-5'  #### change this to prevent overwriting weights in same env_name folder
 directory = "runs/PPO_preTrained"
 if not os.path.exists(directory):
     os.makedirs(directory)
-
 directory = directory + '/' + env_name + '/'
 if not os.path.exists(directory):
     os.makedirs(directory)
-
 checkpoint_path = directory + "PPO_{}_{}.pth".format(env_name, run_num_pretrained)
 print("save checkpoint path : " + checkpoint_path)
-
 #####################################################
-
-
 ############# print all hyperparameters #############
 
 print("--------------------------------------------------------------------------------------------")
-
 print("最大步数 : ", max_training_timesteps)
 print("每一幕的最大步数 : ", max_ep_len)
-
 print("模型保存频率 : " + str(save_model_freq) + " timesteps")
 print("printing average reward over episodes in last : " + str(print_freq) + " timesteps")
-
 print("--------------------------------------------------------------------------------------------")
-
 print("状态空间维数 : ", state_dim)
 print("动作空间维数 : ", action_dim)
-
 print("--------------------------------------------------------------------------------------------")
-
 print("初始化离散动作空间策略")
-
 print("--------------------------------------------------------------------------------------------")
-
 print("PPO 更新频率 : " + str(update_timestep) + " timesteps")
 print("PPO K epochs : ", K_epochs)
 print("PPO epsilon clip : ", eps_clip)
 print("discount factor (gamma) : ", gamma)
-
 print("--------------------------------------------------------------------------------------------")
-
 print("optimizer learning rate actor : ", lr_actor)
 print("optimizer learning rate critic : ", lr_critic)
-
 #####################################################
 
 print("============================================================================================")
-
 ################################## set device ##################################
 print("============================================================================================")
 # set device to cpu or cuda
 device = torch.device('cpu')
-
 if (torch.cuda.is_available()):
     device = torch.device('cuda:0')
     torch.cuda.empty_cache()
     print("Device set to : " + str(torch.cuda.get_device_name(device)))
 else:
     print("Device set to : cpu")
-
 print("============================================================================================")
-
-
-################################## PPO Policy ##################################
-
-
+#########################5######### PPO Policy ##################################
 class RolloutBuffer:
     def __init__(self):
         self.actions = []
@@ -129,7 +98,7 @@ class RolloutBuffer:
 
 
 class ActorCritic(nn.Module):
-    def __init__(self, state_dim, action_dim):
+    def __init__(self, state_dim, action_dim, agent_num, item_num):
         super(ActorCritic, self).__init__()
 
         self.actor = nn.Sequential(
@@ -149,6 +118,9 @@ class ActorCritic(nn.Module):
             nn.Linear(64, 1)
         )
 
+        self.agent_num = agent_num
+        self.item_num =  item_num
+
     def forward(self):
         raise NotImplementedError
 
@@ -158,41 +130,63 @@ class ActorCritic(nn.Module):
         return X_exp / partition # 这⾥应⽤了⼴播机制
 
     def act(self, state):
-        output = self.actor(state)
-        output_agent = torch.sigmoid(output[0:3])
+        output = self.actor(state)        
+        ##################################前self.agent个状态################################## 
+        output_agent = torch.sigmoid(output[0:self.agent_num])
         rou_agents = env.return_tau_agent()
-        box = torch.tensor([0,0,0])
-        for i in rou_agents:
-            box[i] = 1
+        box = torch.zeros(self.agent_num,dtype=torch.int16)
+        for i in range(len(rou_agents)):
+            if rou_agents[i] == 1:
+                box[i] = 1
         output_agent *= box
         agent_probs = self.softmax(output_agent)
         agent = np.argmax(agent_probs)
-
-        price = torch.tanh(output[3:])
-        action_logprob = agent_probs[agent.item()]
+        action_logprob1 = agent_probs[agent.item()]
+        ##################################后self.item个状态###################################
+        action_mean = torch.sigmoid(output[self.agent_num:])
+        self.action_var = torch.full((self.item_num,), 0.5 * 0.5).to(device)
+        cov_mat = torch.diag(self.action_var).unsqueeze(dim=0)
+        dist = MultivariateNormal(action_mean, cov_mat)
+        price = dist.sample().squeeze(dim=0)
+        action_logprob2 = dist.log_prob(price)
         action = torch.cat([agent.unsqueeze(0),price],dim = 0)
+        action_logprob = action_logprob1 * action_logprob2
         return action.detach(), action_logprob.detach()
 
     def evaluate(self, state, action):
         #不能使用广播机制
         output = self.actor(state)
-        indices = torch.tensor([0,1,2])
-        agent_probs = torch.index_select(output, dim=1,index = indices) 
-        agent_probs = torch.softmax(agent_probs,dim=0)
-
-        dist = Categorical(agent_probs)
-
+        ##################################前self.agent个状态################################## 
+        indices = torch.tensor([i for i in range(self.agent_num)])
+        action_part1 = torch.index_select(output, dim=1,index = indices) 
+        action_probs1 = torch.softmax(action_part1,dim=0)
+        dist1 = Categorical(action_probs1)
         indices = torch.tensor(0)
-        action_pool = torch.index_select(action, dim = 1, index = indices)
-        action_logprobs = dist.log_prob(action_pool)
-        dist_entropy = dist.entropy()
+        action_pool1 = torch.index_select(action, dim = 1, index = indices)
+        action_logprob1 = dist1.log_prob(action_pool1)
+        dist1_entropy = dist1.entropy()
+        ##################################后self.item个状态###################################
+        indices = torch.tensor([i for i in range(self.item_num)])
+        action_part2 = torch.index_select(output, dim=1,index = indices) 
+        self.action_var = torch.full((5,), 0.5 * 0.5).to(device)
+        cov_mat = torch.diag(self.action_var).unsqueeze(dim=0)
+        dist2 = MultivariateNormal(action_part2, cov_mat)
+
+        indices = torch.tensor([i for i in range(1,self.item_num+1)])
+        action_pool2 = torch.index_select(action, dim = 1, index = indices)
+        action_logprob2 = dist2.log_prob(action_pool2)
+        dist2_entropy = dist2.entropy()
+
+        ##################################聚合信息###################################
+        action_logprobs = action_logprob1 * action_logprob2
+        dist_entropy = dist1_entropy + dist2_entropy
         state_values = self.critic(state)
 
         return action_logprobs, state_values, dist_entropy
 
 
 class PPO:
-    def __init__(self, state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip):
+    def __init__(self, state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip,agent_num, item_num):
 
         self.gamma = gamma
         self.eps_clip = eps_clip
@@ -200,18 +194,18 @@ class PPO:
 
         self.buffer = RolloutBuffer()  # 经验池
 
-        self.policy = ActorCritic(state_dim, action_dim).to(device)  # AC策略
+        self.policy = ActorCritic(state_dim, action_dim,agent_num=agent_num,item_num=item_num).to(device)  # AC策略
         self.optimizer = torch.optim.Adam([
             {'params': self.policy.actor.parameters(), 'lr': lr_actor},
             {'params': self.policy.critic.parameters(), 'lr': lr_critic}
         ])
 
-        self.policy_old = ActorCritic(state_dim, action_dim).to(device)  # AC策略old网络
+        self.policy_old = ActorCritic(state_dim, action_dim,agent_num=agent_num,item_num=item_num).to(device)  # AC策略old网络
         self.policy_old.load_state_dict(self.policy.state_dict())
 
         self.MseLoss = nn.MSELoss()
         self.record = 0
-
+        
     def select_action(self, state):
 
         with torch.no_grad():
@@ -286,8 +280,10 @@ class PPO:
 
 def train():
     ################# training procedure ################
+    agent_num = env.return_agent_num()
+    item_num = env.return_item_num()
     # initialize a PPO agent
-    ppo_agent = PPO(state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip)
+    ppo_agent = PPO(state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, agent_num, item_num)
     # track total training time
     start_time = datetime.now().replace(microsecond=0)
     print("Started training at (GMT) : ", start_time)
@@ -311,6 +307,8 @@ def train():
     while time_step <= max_training_timesteps:
 
         state = env.reset()
+        valuation_function = env.return_valuation_function()
+        # print(valuation_function)
         current_ep_reward = 0
 
         for t in range(1, max_ep_len + 1):
@@ -353,7 +351,7 @@ def train():
             # break; if the episode is over
             if done:
                 socialwelfare = env.return_socialwelfare()
-                writer.add_scalar('info/PPO_SW', socialwelfare, global_step=i_episode)
+                # writer.add_scalar('info/PPO_SW', socialwelfare, global_step=i_episode)
                 break
 
         print_running_reward += current_ep_reward
