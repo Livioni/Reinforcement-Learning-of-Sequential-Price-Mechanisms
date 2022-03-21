@@ -5,21 +5,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical, MultivariateNormal
-# from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
-# writer = SummaryWriter(comment='Workflow scheduler Reward Record')
+writer = SummaryWriter(comment='SPMs Reward Record')
 print("============================================================================================")
 ####### initialize environment hyperparameters ######
 env_name = "SPMsEnv-v0"  # 定义自己的环境名称
 max_ep_len = 100  # max timesteps in one episode
-max_training_timesteps = int(3e4)  # break training loop if timeteps > max_training_timesteps
+max_training_timesteps = int(3e6)  # break training loop if timeteps > max_training_timesteps
 print_freq = max_ep_len * 2  # print avg reward in the interval (in num timesteps)
 save_model_freq = int(1e4)  # save model frequency (in num timesteps)
 
-action_std = 0.6                    # starting std for action distribution (Multivariate Normal)
-action_std_decay_rate = 0.05        # linearly decay action_std (action_std = action_std - action_std_decay_rate)
-min_action_std = 0.1                # minimum action_std (stop decay after action_std <= min_action_std)
-action_std_decay_freq = int(2.5e5)  # action_std decay frequency (in num timesteps)
 #####################################################
 
 ## Note : print frequencies should be > than max_ep_len
@@ -133,7 +129,7 @@ class ActorCritic(nn.Module):
         output = self.actor(state)        
         ##################################前self.agent个状态################################## 
         output_agent = torch.sigmoid(output[0:self.agent_num])
-        rou_agents = env.return_tau_agent()
+        rou_agents = env.return_tau_agent
         box = torch.zeros(self.agent_num,dtype=torch.int16)
         for i in range(len(rou_agents)):
             if rou_agents[i] == 1:
@@ -144,7 +140,7 @@ class ActorCritic(nn.Module):
         action_logprob1 = agent_probs[agent.item()]
         ##################################后self.item个状态###################################
         action_mean = torch.sigmoid(output[self.agent_num:])
-        self.action_var = torch.full((self.item_num,), 0.5 * 0.5).to(device)
+        self.action_var = torch.full((self.item_num,), 0.01).to(device)
         cov_mat = torch.diag(self.action_var).unsqueeze(dim=0)
         dist = MultivariateNormal(action_mean, cov_mat)
         price = dist.sample().squeeze(dim=0)
@@ -159,7 +155,8 @@ class ActorCritic(nn.Module):
         ##################################前self.agent个状态################################## 
         indices = torch.tensor([i for i in range(self.agent_num)])
         action_part1 = torch.index_select(output, dim=1,index = indices) 
-        action_probs1 = torch.softmax(action_part1,dim=0)
+        outputagent = torch.sigmoid(action_part1)
+        action_probs1 = torch.softmax(outputagent,dim=0)
         dist1 = Categorical(action_probs1)
         indices = torch.tensor(0)
         action_pool1 = torch.index_select(action, dim = 1, index = indices)
@@ -168,10 +165,10 @@ class ActorCritic(nn.Module):
         ##################################后self.item个状态###################################
         indices = torch.tensor([i for i in range(self.item_num)])
         action_part2 = torch.index_select(output, dim=1,index = indices) 
-        self.action_var = torch.full((5,), 0.5 * 0.5).to(device)
+        action_mean = torch.sigmoid(action_part2)
+        self.action_var = torch.full((self.item_num,), 0.01).to(device)
         cov_mat = torch.diag(self.action_var).unsqueeze(dim=0)
-        dist2 = MultivariateNormal(action_part2, cov_mat)
-
+        dist2 = MultivariateNormal(action_mean, cov_mat)
         indices = torch.tensor([i for i in range(1,self.item_num+1)])
         action_pool2 = torch.index_select(action, dim = 1, index = indices)
         action_logprob2 = dist2.log_prob(action_pool2)
@@ -179,7 +176,7 @@ class ActorCritic(nn.Module):
 
         ##################################聚合信息###################################
         action_logprobs = action_logprob1 * action_logprob2
-        dist_entropy = dist1_entropy + dist2_entropy
+        dist_entropy = (dist1_entropy + dist2_entropy)/2
         state_values = self.critic(state)
 
         return action_logprobs, state_values, dist_entropy
@@ -256,9 +253,7 @@ class PPO:
 
             # final loss of clipped objective PPO
             loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values, rewards) - 0.01 * dist_entropy
-            # for j in range(update_timestep):
-            #     writer.add_scalar('Loss/PPO_loss', loss[j], global_step=self.record)
-            #     self.record += 1
+
             # take gradient step
             self.optimizer.zero_grad()
             loss.mean().backward()
@@ -280,8 +275,8 @@ class PPO:
 
 def train():
     ################# training procedure ################
-    agent_num = env.return_agent_num()
-    item_num = env.return_item_num()
+    agent_num = env.return_agent_num
+    item_num = env.return_item_num
     # initialize a PPO agent
     ppo_agent = PPO(state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, agent_num, item_num)
     # track total training time
@@ -307,7 +302,7 @@ def train():
     while time_step <= max_training_timesteps:
 
         state = env.reset()
-        valuation_function = env.return_valuation_function()
+        # valuation_function = env.return_valuation_function
         # print(valuation_function)
         current_ep_reward = 0
 
@@ -350,8 +345,8 @@ def train():
 
             # break; if the episode is over
             if done:
-                socialwelfare = env.return_socialwelfare()
-                # writer.add_scalar('info/PPO_SW', socialwelfare, global_step=i_episode)
+                socialwelfare = env.return_socialwelfare
+                writer.add_scalar('info/PPO_SW', socialwelfare, global_step=i_episode)
                 break
 
         print_running_reward += current_ep_reward
