@@ -22,18 +22,39 @@ class InventoryEnv(gym.Env):
         self.socialwelfare = 0  #初始化social  welfare  
         self.valuation_set = [0.5,1]
         ##初始化效用函数
-        self.valuationF = np.zeros([self.agent_num,self.items_num],dtype=np.float64)
-        for i in range(self.agent_num):
-            for j in range(self.items_num):
-                self.valuationF[i][j] =  random.sample(self.valuation_set, 1)[0]
+        # self.valuationF = np.zeros([self.agent_num,self.items_num],dtype=np.float64)
+        # for i in range(self.agent_num):
+        #     for j in range(self.items_num):
+        #         self.valuationF[i][j] =  random.sample(self.valuation_set, 1)[0]
+
+        self.valuationF = np.array([[1.,1.,0.5,0.5,0.5,1.,0.5,0.5,1.,1.],\
+                                    [0.5,1.,1.,1.,0.5,0.5,1.,1.,0.5,0.5],\
+                                    [1.,1.,1.,1.,1.,0.5,1.,1.,1.,0.5],\
+                                    [0.5,0.5,0.5,0.5,0.5,0.5,0.5,1.,0.5,0.5],\
+                                    [1.,1.,1.,1.,0.5,1.,0.5,1.,1.,0.5],\
+                                    [0.5,1.,0.5,0.5,0.5,0.5,1.,0.5,0.5,1.],\
+                                    [0.5,1.,1.,0.5,1.,1.,1.,1.,1.,1.,],\
+                                    [0.5,0.5,0.5,1.,0.5,0.5,0.5,1.,0.5,1.],\
+                                    [0.5,1.,0.5,0.5,0.5,1.,0.5,0.5,1.,0.5],\
+                                    [1.,1.,1.,0.5,0.5,0.5,1.,0.5,1.,1.],\
+                                    [0.5,0.5,0.5,0.5,1.,1.,1.,0.5,1.,1.],\
+                                    [1.,0.5,0.5,1.,1.,0.5,1.,0.5,1.,1.],\
+                                    [0.5,0.5,0.5,0.5,0.5,0.5,1.,1.,1.,1.],\
+                                    [0.5,1.,0.5,0.5,1.,0.5,1.,1.,0.5,1.],\
+                                    [0.5,0.5,0.5,1.,0.5,1.,0.5,1.,0.5,1.],\
+                                    [0.5,0.5,0.5,0.5,1.,1.,1.,1.,1.,0.5],\
+                                    [1.,0.5,1.,0.5,0.5,0.5,0.5,0.5,1.,0.5],\
+                                    [1.,0.5,0.5,1.,0.5,1.,0.5,0.5,0.5,1.],\
+                                    [0.5,0.5,1.,1.,1.,0.5,1.,0.5,1.,1.],\
+                                    [0.5,1.,1.,1.,1.,0.5,0.5,1.,1.,0.5]], dtype= np.float32)
 
         self.viewer = None
 
-        #Items/agents left
-        self.low_observation = np.zeros(self.agent_num + self.items_num,dtype=np.float32)
-        self.high_observation = np.ones(self.agent_num + self.items_num,dtype=np.float32)
-        self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
-        self.high_action = np.ones(self.agent_num+self.items_num,dtype=np.float32)       
+        # #Items/agents left
+        # self.low_observation = np.zeros(self.agent_num + self.items_num,dtype=np.float32)
+        # self.high_observation = np.ones(self.agent_num + self.items_num,dtype=np.float32)
+        # self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
+        # self.high_action = np.ones(self.agent_num+self.items_num,dtype=np.float32)       
 
         # Allocation matrix
         # self.low_observation = np.zeros(self.agent_num + self.items_num + self.items_num,dtype=np.float32)
@@ -41,11 +62,11 @@ class InventoryEnv(gym.Env):
         # self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
         # self.high_action = np.ones(self.agent_num+self.items_num,dtype=np.float32)
 
-        # # Price-allocation matrix
-        # self.low_observation = np.zeros(self.agent_num + self.items_num + self.items_num + self.items_num*self.agent_num,dtype=np.float32)
-        # self.high_observation = np.ones(self.agent_num + self.items_num + self.items_num + self.items_num*self.agent_num,dtype=np.float32)
-        # self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
-        # self.high_action = np.ones(self.agent_num+self.items_num,dtype=np.float32)
+        # Price-allocation matrix
+        self.low_observation = np.zeros(self.agent_num + self.items_num + self.items_num + self.items_num*self.agent_num,dtype=np.float32)
+        self.high_observation = np.ones(self.agent_num + self.items_num + self.items_num + self.items_num*self.agent_num,dtype=np.float32)
+        self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
+        self.high_action = np.ones(self.agent_num+self.items_num,dtype=np.float32)
 
         self.observation_space = spaces.Box(low=self.low_observation, high=self.high_observation,dtype=np.float32)
         self.action_space = spaces.Box(low=self.low_action,high=self.high_action,dtype=np.float32)
@@ -105,20 +126,20 @@ class InventoryEnv(gym.Env):
         else: 
             reward = 0
 
-        #Items/agents left
-        self.state = self.rou_agents
-        self.state = np.hstack((self.state,self.rou_items))
+        # #Items/agents left
+        # self.state = self.rou_agents
+        # self.state = np.hstack((self.state,self.rou_items))
 
-        # # Allocation matrix
+        # Allocation matrix
         # self.state = self.rou_agents
         # self.state = np.hstack((self.state,self.rou_items))
         # self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
 
         # # Price-allocation matrix        
-        # self.state = self.rou_agents
-        # self.state = np.hstack((self.state,self.rou_items))
-        # self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
-        # self.state = np.hstack((self.state,self.price_allocation_matrix.flatten()))
+        self.state = self.rou_agents
+        self.state = np.hstack((self.state,self.rou_items))
+        self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
+        self.state = np.hstack((self.state,self.price_allocation_matrix.flatten()))
         return self.state, reward, done, {}
 
     def reset(self):
@@ -135,20 +156,20 @@ class InventoryEnv(gym.Env):
         self.allocation_matrix = np.zeros([self.agent_num,self.items_num],dtype=np.int16) #初始化allocation 20*5维
         self.price_allocation_matrix = np.zeros([self.agent_num,self.items_num],dtype=np.float64)
 
-        #Items/agents left
+        # #Items/agents left
+        # self.state = self.rou_agents
+        # self.state = np.hstack((self.state,self.rou_items))
+
+        # # Allocation matrix
+        # self.state = self.rou_agents
+        # self.state = np.hstack((self.state,self.rou_items))
+        # self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
+
+        # Price-allocation matrix
         self.state = self.rou_agents
         self.state = np.hstack((self.state,self.rou_items))
-
-        # Allocation matrix
-        # self.state = self.rou_agents
-        # self.state = np.hstack((self.state,self.rou_items))
-        # self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
-
-        # # Price-allocation matrix
-        # self.state = self.rou_agents
-        # self.state = np.hstack((self.state,self.rou_items))
-        # self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
-        # self.state = np.hstack((self.state,self.price_allocation_matrix.flatten()))
+        self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
+        self.state = np.hstack((self.state,self.price_allocation_matrix.flatten()))
         return self.state
 
     def render(self):

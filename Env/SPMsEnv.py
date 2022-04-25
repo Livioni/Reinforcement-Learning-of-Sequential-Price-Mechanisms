@@ -73,11 +73,24 @@ class SPMsEnv(gym.Env):
         #                 [0.54774761,0.36121875,0.46010207,0.22939186,0.46555167]],dtype=np.float32)
 
         self.viewer = None
-        
-        self.low_observation = np.zeros(self.items_num+self.items_num*self.agent_num,dtype=np.float32)
-        self.high_observation = np.ones(self.items_num+self.items_num*self.agent_num,dtype=np.float32)
+
+        #Items/agents left
+        self.low_observation = np.zeros(self.agent_num + self.items_num,dtype=np.float32)
+        self.high_observation = np.ones(self.agent_num + self.items_num,dtype=np.float32)
         self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
-        self.high_action = np.ones(self.agent_num+self.items_num,dtype=np.float32)
+        self.high_action = np.ones(self.agent_num+self.items_num,dtype=np.float32)       
+
+        # Allocation matrix
+        # self.low_observation = np.zeros(self.agent_num + self.items_num + self.items_num,dtype=np.float32)
+        # self.high_observation = np.ones(self.agent_num + self.items_num + self.items_num,dtype=np.float32)
+        # self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
+        # self.high_action = np.ones(self.agent_num+self.items_num,dtype=np.float32)
+
+        # # Price-allocation matrix
+        # self.low_observation = np.zeros(self.agent_num + self.items_num + self.items_num + self.items_num*self.agent_num,dtype=np.float32)
+        # self.high_observation = np.ones(self.agent_num + self.items_num + self.items_num + self.items_num*self.agent_num,dtype=np.float32)
+        # self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
+        # self.high_action = np.ones(self.agent_num+self.items_num,dtype=np.float32)
 
         self.observation_space = spaces.Box(low=self.low_observation, high=self.high_observation,dtype=np.float32)
         self.action_space = spaces.Box(low=self.low_action,high=self.high_action,dtype=np.float32)
@@ -137,8 +150,20 @@ class SPMsEnv(gym.Env):
         else: 
             reward = 0
 
-        self.state = self.allocation_matrix[self.agent].flatten()
-        self.state = np.hstack((self.state,self.price_allocation_matrix.flatten()))  
+        #Items/agents left
+        self.state = self.rou_agents
+        self.state = np.hstack((self.state,self.rou_items))
+
+        # # Allocation matrix
+        # self.state = self.rou_agents
+        # self.state = np.hstack((self.state,self.rou_items))
+        # self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
+
+        # # Price-allocation matrix        
+        # self.state = self.rou_agents
+        # self.state = np.hstack((self.state,self.rou_items))
+        # self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
+        # self.state = np.hstack((self.state,self.price_allocation_matrix.flatten()))
         return self.state, reward, done, {}
 
     def reset(self):
@@ -155,8 +180,20 @@ class SPMsEnv(gym.Env):
         self.allocation_matrix = np.zeros([self.agent_num,self.items_num],dtype=np.int16) #初始化allocation 20*5维
         self.price_allocation_matrix = np.zeros([self.agent_num,self.items_num],dtype=np.float64)
 
-        self.state = self.allocation_matrix[self.agent].flatten()
-        self.state = np.hstack((self.state,self.price_allocation_matrix.flatten()))
+        #Items/agents left
+        self.state = self.rou_agents
+        self.state = np.hstack((self.state,self.rou_items))
+
+        # Allocation matrix
+        # self.state = self.rou_agents
+        # self.state = np.hstack((self.state,self.rou_items))
+        # self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
+
+        # # Price-allocation matrix
+        # self.state = self.rou_agents
+        # self.state = np.hstack((self.state,self.rou_items))
+        # self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
+        # self.state = np.hstack((self.state,self.price_allocation_matrix.flatten()))
         return self.state
 
     def render(self):
