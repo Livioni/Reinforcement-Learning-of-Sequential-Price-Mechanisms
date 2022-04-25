@@ -1,5 +1,7 @@
 import random
 import numpy as np
+import torch 
+from torch import nn
 # valuationF = np.array([[0.78900805,0.96012449,0.99099806,0.58527462,0.63666145],\
 #                 [0.98648185,0.55739215,0.19698906,0.68369219,0.27437320],\
 #                 [0.86374709,0.85091796,0.43573782,0.13482168,0.40099636],\
@@ -21,15 +23,77 @@ import numpy as np
 #                 [0.49674642,0.72062413,0.07787972,0.24753036,0.55676578],\
 #                 [0.73727425,0.13167262,0.73926587,0.41809112,0.55647347]],dtype=np.float32)
 
+# agent_num,items_num = 20,5
+# # valuation_set = [0.5,1]
+# # ##初始化效用函数
+# delta = 0.34
+# Z = random.uniform((1-delta)/2, (1+delta)/2) 
+# valuationF = np.zeros([agent_num,items_num],dtype=np.float64)
+# for i in range(agent_num):
+#     for j in range(items_num):
+#         valuationF[i][j] = random.uniform(Z-(1-delta)/2,Z+(1-delta)/2)
+# valuationF = np.array([[0.82056380,0.75085814,0.80649213,0.66718547,0.60177665],\
+#                         [0.53871496,0.74116998,0.49023755,0.62529961,0.4677421,],\
+#                         [0.62154513,0.81398764,0.77809160,0.75786980,0.80643186],\
+#                         [0.46361577,0.52044746,0.64082748,0.58416801,0.58064334],\
+#                         [0.48211456,0.64155361,0.44931744,0.49571730,0.54663379],\
+#                         [0.46265119,0.90379159,0.43233035,0.71572148,0.80563687],\
+#                         [0.74083186,0.85450743,0.66100919,0.46618217,0.69468876],\
+#                         [0.49596751,0.89237095,0.53653965,0.43185060,0.57823526],\
+#                         [0.61859413,0.49970378,0.59842140,0.81216326,0.57596745],\
+#                         [0.55972638,0.76856466,0.68641035,0.78481651,0.76458924],\
+#                         [0.81899059,0.78442305,0.56599245,0.78768933,0.74641114],\
+#                         [0.80398142,0.45395139,0.80307528,0.53886493,0.90721872],\
+#                         [0.84707981,0.91099478,0.75209413,0.91383390,0.53991594],\
+#                         [0.82544360,0.47809490,0.47348607,0.69055768,0.80206644],\
+#                         [0.48382233,0.53648629,0.53495853,0.82113082,0.88336502],\
+#                         [0.78600917,0.52984319,0.69554863,0.78972415,0.68049813],\
+#                         [0.54490653,0.64418488,0.85025338,0.84758725,0.68067916],\
+#                         [0.87237872,0.77965879,0.86154242,0.48100582,0.47905533],\
+#                         [0.65490038,0.85809629,0.64363378,0.69315903,0.56082043],\
+#                         [0.81865368,0.43906551,0.87875157,0.71037880,0.86828593]],dtype=np.float32)
+# print(valuationF)
 # maxlie = np.amax(valuationF,axis=0)
-# maxlie[3]=0.93314658
 # print(maxlie)
 # print(sum(maxlie))
-agent_num,items_num = 20,10
-valuation_set = [0.5,1]
-##初始化效用函数
-valuationF = np.zeros([agent_num,items_num],dtype=np.float64)
-for i in range(agent_num):
-    for j in range(items_num):
-        valuationF[i][j] =  random.sample(valuation_set, 1)[0]
-print(valuationF)
+
+# def softmax(X):
+#     X_exp = X.exp() 
+#     partition = X_exp.sum(dim=0, keepdim=True) 
+#     return X_exp / partition # 这⾥应⽤了⼴播机制
+
+# probs = torch.tensor([0.2,0.5,0.7])
+# probs_after = softmax(probs) 
+# print(probs_after)
+# value,inci = probs_after.sort(descending=True)
+# print(value,inci)
+
+
+class Policy(nn.Module):
+    def __init__(self, in_dim, n_hidden_1, n_hidden_2, num_outputs):
+        super(Policy, self).__init__()
+        self.layer = nn.Sequential(
+            nn.Linear(in_dim, n_hidden_1),
+            nn.ReLU(True),
+            nn.Linear(n_hidden_1, n_hidden_2),
+            nn.ReLU(True),
+            nn.Linear(n_hidden_2, num_outputs)
+        )
+
+class Normal(nn.Module):
+    def __init__(self, num_outputs):
+        super().__init__()
+        self.stds = nn.Parameter(torch.zeros(num_outputs))
+        print("self.stds:",self.stds)
+    def forward(self, x):
+        dist = torch.distributions.Normal(loc=x, scale=self.stds.exp())
+        action = dist.sample()
+        return action
+
+if __name__ == '__main__':
+    policy = Policy(4,20,20,5)
+    normal = Normal(5)
+    observation = torch.Tensor(4)
+    print("obervation:",observation)
+    action = normal.forward(policy.layer(observation))
+    print("action: ",action)
