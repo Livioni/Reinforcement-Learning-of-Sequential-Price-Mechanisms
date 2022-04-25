@@ -29,7 +29,7 @@ class SPMsEnv(gym.Env):
         #         self.valuationF[i][j] = random.uniform(self.Z-(1-self.delta)/2,self.Z+(1-self.delta)/2)
 
         #delta = 0
-        self.valuationF =np.array([[0.78900805,0.96012449,0.99099806,0.58527462,0.63666145],\
+        self.valuationF = np.array([[0.78900805,0.96012449,0.99099806,0.58527462,0.63666145],\
                         [0.98648185,0.55739215,0.19698906,0.68369219,0.27437320],\
                         [0.86374709,0.85091796,0.43573782,0.13482168,0.40099636],\
                         [0.58141219,0.22629741,0.66612841,0.97642836,0.79005999],\
@@ -50,6 +50,28 @@ class SPMsEnv(gym.Env):
                         [0.49674642,0.72062413,0.07787972,0.24753036,0.55676578],\
                         [0.73727425,0.13167262,0.73926587,0.41809112,0.55647347]],dtype=np.float32)
 
+        #delta = 0.34
+        # self.valuationF=np.array([[0.28746766,0.11773536,0.06417870,0.21074364,0.47814521],\
+        #                 [0.52800661,0.19562626,0.24214131,0.63061773,0.58011432],\
+        #                 [0.25686938,0.27776415,0.07730791,0.40525655,0.43227341],\
+        #                 [0.60449626,0.36269815,0.21132956,0.47090524,0.40805888],\
+        #                 [0.31917121,0.17862318,0.22754560,0.36751298,0.19221779],\
+        #                 [0.19203603,0.24428465,0.16879044,0.36700307,0.08487778],\
+        #                 [0.59771820,0.26470922,0.52927054,0.41799680,0.20547174],\
+        #                 [0.38280490,0.47394948,0.17736245,0.63987204,0.45280828],\
+        #                 [0.22674475,0.17646293,0.20397242,0.67082954,0.05140794],\
+        #                 [0.45652455,0.50693406,0.59523298,0.07084946,0.13145058],\
+        #                 [0.43195991,0.05722680,0.31895462,0.32064159,0.33700103],\
+        #                 [0.66470028,0.33526021,0.60525721,0.69022206,0.56940958],\
+        #                 [0.04651746,0.20159853,0.70205233,0.09177878,0.63128829],\
+        #                 [0.52686478,0.40227233,0.36102621,0.67907867,0.37154088],\
+        #                 [0.20104286,0.33263745,0.55911495,0.48018483,0.16943506],\
+        #                 [0.62039231,0.41561842,0.09501664,0.16722161,0.57961700],\
+        #                 [0.69621466,0.37048358,0.38992990,0.65110436,0.66278520],\
+        #                 [0.31267322,0.66777534,0.15991525,0.37678061,0.68928265],\
+        #                 [0.61405565,0.07927069,0.37009645,0.28577439,0.63793179],\
+        #                 [0.54774761,0.36121875,0.46010207,0.22939186,0.46555167]],dtype=np.float32)
+
         self.viewer = None
         
         self.low_observation = np.zeros(self.items_num+self.items_num*self.agent_num,dtype=np.float32)
@@ -65,14 +87,6 @@ class SPMsEnv(gym.Env):
     
     def set_valuationF(self,valuationF):
         self.valuationF = valuationF
-
-    @property
-    def return_socialwelfare(self):
-        return self.socialwelfare
-
-    @property
-    def return_tau_agent(self):
-        return self.rou_agents
 
     @property
     def return_allocation_matrix(self):
@@ -101,20 +115,15 @@ class SPMsEnv(gym.Env):
             else:
                 self.price[ele] = 9 #如果商品已经售出则标价99 agent买不起。
 
-        # for i in range(self.items_num):
-        #     utility.append(self.valuationF[self.agent][i] - self.price[i])
-
-        # max_utility = max(utility)
-        # if max_utility > 0:
-        #     max_index = utility.index(max_utility)
-        #     self.allocation_matrix[self.agent][max_index] = 1
-        #     self.rou_items[max_index] = 0
-
         for i in range(self.items_num):
-            if self.valuationF[self.agent][i] > self.price[i]:
-                self.allocation_matrix[self.agent][i] = 1
-                self.rou_items[i] = 0
-                break
+            utility.append(self.valuationF[self.agent][i] - self.price[i])
+
+        max_utility = max(utility)
+        if max_utility > 0:
+            max_index = utility.index(max_utility)
+            self.allocation_matrix[self.agent][max_index] = 1
+            self.rou_items[max_index] = 0
+            # self.price_allocation_matrix[self.agent][max_index] = self.price[max_index]
 
         self.socialwelfare += self.allocation_matrix[self.agent].dot(self.valuationF[self.agent].T)
         self.tau[self.agent] = self.allocation_matrix[self.agent].dot(self.price.T)

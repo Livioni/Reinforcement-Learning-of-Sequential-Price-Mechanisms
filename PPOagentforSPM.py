@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch.distributions import Categorical, MultivariateNormal
 from torch.utils.tensorboard import SummaryWriter
 start_time = datetime.now().replace(microsecond=0)
-log_dir = "runs/Price-allocation matrix_delta=0_"+str(start_time)
+log_dir = "runs/SPMsEnvPAM_delta=0_"+str(start_time)
 writer = SummaryWriter(log_dir=log_dir,comment='SPMs Reward Record')
 print("============================================================================================")
 ####### initialize environment hyperparameters ######
@@ -33,7 +33,7 @@ print("training environment name : " + env_name)
 env = gym.make(env_name).unwrapped
 state_dim,action_dim = env.observation_space.shape[0],env.action_space.shape[0]
 ################### checkpointing ###################
-run_num_pretrained = 'SPMs20-5with_PAmatrix'  #### change this to prevent overwriting weights in same env_name folder
+run_num_pretrained = 'SPMs20-5with_PAM_delta=0#test_2'  #### change this to prevent overwriting weights in same env_name folder
 directory = "runs/PPO_preTrained"
 if not os.path.exists(directory):
     os.makedirs(directory)
@@ -99,20 +99,20 @@ class ActorCritic(nn.Module):
         super(ActorCritic, self).__init__()
 
         self.actor = nn.Sequential(
-            nn.Linear(state_dim, 64*2),
+            nn.Linear(state_dim, 64*4),
             nn.Tanh(),
-            nn.Linear(64*2, 64*2),
+            nn.Linear(64*4, 64*4),
             nn.Tanh(),
-            nn.Linear(64*2, action_dim),
+            nn.Linear(64*4, action_dim),
         )
 
         # critic
         self.critic = nn.Sequential(
-            nn.Linear(state_dim, 64*2),
+            nn.Linear(state_dim, 64*4),
             nn.Tanh(),
-            nn.Linear(64*2, 64*2),
+            nn.Linear(64*4, 64*4),
             nn.Tanh(),
-            nn.Linear(64*2, 1)
+            nn.Linear(64*4, 1)
         )
 
         self.agent_num = agent_num
@@ -129,8 +129,10 @@ class ActorCritic(nn.Module):
     def act(self, state):
         output = self.actor(state)        
         ##################################前self.agent个状态################################## 
-        output_agent = torch.sigmoid(output[0:self.agent_num])
-        rou_agents = env.return_tau_agent
+        output_agent = output[0:self.agent_num]
+        for j in range(len(output_agent)):
+            output_agent[j] = (output_agent[j]-min(output_agent))/(max(output_agent)-min(output_agent))
+        rou_agents = env.rou_agents
         box = torch.zeros(self.agent_num,dtype=torch.int16)
         for i in range(len(rou_agents)):
             if rou_agents[i] == 1:
@@ -302,8 +304,6 @@ def train():
     while time_step <= max_training_timesteps:
 
         state = env.reset()
-        # valuation_function = env.return_valuation_function
-        # print(valuation_function)
         current_ep_reward = 0
 
         for t in range(1, max_ep_len + 1):
@@ -345,7 +345,7 @@ def train():
 
             # break; if the episode is over
             if done:
-                socialwelfare = env.return_socialwelfare
+                socialwelfare = env.socialwelfare
                 writer.add_scalar('info/PPO_SW', socialwelfare, global_step=i_episode)
                 break
 

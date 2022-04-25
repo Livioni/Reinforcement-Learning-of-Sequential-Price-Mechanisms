@@ -24,7 +24,7 @@ while timesteps < max_timesteps:
         timesteps += 1
         timesteps_in_episode += 1
         if done:
-            socialwelfare = env.return_socialwelfare
+            socialwelfare = env.socialwelfare
             writer.add_scalar('info/PPO_SW', socialwelfare, global_step=i_episode)
             i_episode += 1
             print("Episode: ",i_episode, "social welfare : ",socialwelfare)
