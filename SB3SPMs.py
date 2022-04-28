@@ -3,11 +3,11 @@ from datetime import datetime
 from stable_baselines3 import PPO
 
 start_time = datetime.now().replace(microsecond=0)
-log_dir = "runs/stable_baseline/test/SPMs"+str(start_time)
+log_dir = "runs/stable_baseline/unitdemand/SPMs"+str(start_time)
 
 env = gym.make('SPMsEnv-v0')
 model = PPO('MlpPolicy', env, verbose=1,tensorboard_log=log_dir)
-model.learn(total_timesteps=3e6)
+model.learn(total_timesteps=1e6)
 
 obs = env.reset()
 for i in range(100):

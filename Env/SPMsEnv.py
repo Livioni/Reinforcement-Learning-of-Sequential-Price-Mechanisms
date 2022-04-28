@@ -98,23 +98,23 @@ class SPMsEnv(gym.Env):
    
         self.viewer = None
 
-        #Items/agents left
+        # Items/agents left
         # self.low_observation = np.zeros(self.agent_num + self.items_num,dtype=np.float32)
         # self.high_observation = np.ones(self.agent_num + self.items_num,dtype=np.float32)
         # self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
         # self.high_action =  np.ones(self.agent_num+self.items_num,dtype=np.float32)       
 
         # Allocation matrix
-        self.low_observation = np.zeros(self.agent_num + self.items_num + self.items_num,dtype=np.float32)
-        self.high_observation = np.ones(self.agent_num + self.items_num + self.items_num,dtype=np.float32)
-        self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
-        self.high_action = 2 * np.ones(self.agent_num+self.items_num,dtype=np.float32)
+        # self.low_observation = np.zeros(self.agent_num + self.items_num + self.items_num,dtype=np.float32)
+        # self.high_observation = np.ones(self.agent_num + self.items_num + self.items_num,dtype=np.float32)
+        # self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
+        # self.high_action = np.ones(self.agent_num+self.items_num,dtype=np.float32)
 
         # Price-allocation matrix
-        # self.low_observation = np.zeros(self.agent_num + self.items_num + self.items_num + self.items_num*self.agent_num,dtype=np.float32)
-        # self.high_observation = np.ones(self.agent_num + self.items_num + self.items_num + self.items_num*self.agent_num,dtype=np.float32)
-        # self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
-        # self.high_action = 10 * np.ones(self.agent_num+self.items_num,dtype=np.float32)
+        self.low_observation = np.zeros(self.agent_num + self.items_num + self.items_num + self.items_num*self.agent_num,dtype=np.float32)
+        self.high_observation = np.ones(self.agent_num + self.items_num + self.items_num + self.items_num*self.agent_num,dtype=np.float32)
+        self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
+        self.high_action = 10 * np.ones(self.agent_num+self.items_num,dtype=np.float32)
 
         self.observation_space = spaces.Box(low=self.low_observation, high=self.high_observation,dtype=np.float32)
         self.action_space = spaces.Box(low=self.low_action,high=self.high_action,dtype=np.float32)
@@ -165,19 +165,25 @@ class SPMsEnv(gym.Env):
             else:
                 self.price[ele] = 9 #如果商品已经售出则标价99 agent买不起。
 
-        for i in range(self.items_num):
-            utility.append(self.valuationF[self.agent][i] - self.price[i])
+        # for i in range(self.items_num):
+        #     utility.append(self.valuationF[self.agent][i] - self.price[i])
 
-        max_utility = max(utility)
-        if max_utility > 0:
-            max_index = utility.index(max_utility)
-            self.allocation_matrix[self.agent][max_index] = 1
-            self.rou_items[max_index] = 0
-            self.price_allocation_matrix[self.agent][max_index] = self.price[max_index]
-        
+        # max_utility = max(utility)
+        # if max_utility > 0:
+        #     max_index = utility.index(max_utility)
+        #     self.allocation_matrix[self.agent][max_index] = 1
+        #     self.rou_items[max_index] = 0
+        #     self.price_allocation_matrix[self.agent][max_index] = self.price[max_index]
+
+        # unit_demand
+        for i in range(self.items_num):
+            if self.valuationF[self.agent][i] > self.price[i]:
+                self.allocation_matrix[self.agent][i] = 1
+                self.rou_items[i] = 0
+                
         self.rou_agents[self.agent] = 0
-        self.socialwelfare += self.allocation_matrix[self.agent].dot(self.valuationF[self.agent].T)
-        self.tau[self.agent] = self.allocation_matrix[self.agent].dot(self.price.T)
+        self.socialwelfare += max(self.allocation_matrix[self.agent]*(self.valuationF[self.agent].T))
+        self.tau[self.agent] = max(self.allocation_matrix[self.agent]*(self.price.T))
         self.agent = np.array([self.agent],dtype=np.int16)
         done = self.check_done()
         #收益函数：如果是最后一步，则计算整个socialwelfare，如果不是最后一步，则为0；
@@ -185,21 +191,27 @@ class SPMsEnv(gym.Env):
             reward = self.socialwelfare 
         else: 
             reward = 0
+        #收益函数： 最大化收入
+        # if done:
+        #     reward = self.tau.sum()
+        # else: 
+        #     # reward = self.tau[self.agent].sum()
+        #     reward = 0 
 
         # #Items/agents left
         # self.state = self.rou_agents
         # self.state = np.hstack((self.state,self.rou_items))
 
         # # Allocation matrix
-        self.state = self.rou_agents
-        self.state = np.hstack((self.state,self.rou_items))
-        self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
-
-        # # Price-allocation matrix        
         # self.state = self.rou_agents
         # self.state = np.hstack((self.state,self.rou_items))
         # self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
-        # self.state = np.hstack((self.state,self.price_allocation_matrix.flatten()))
+
+        # # Price-allocation matrix        
+        self.state = self.rou_agents
+        self.state = np.hstack((self.state,self.rou_items))
+        self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
+        self.state = np.hstack((self.state,self.price_allocation_matrix.flatten()))
         return self.state, reward, done, {}
 
     def reset(self):
@@ -221,15 +233,15 @@ class SPMsEnv(gym.Env):
         # self.state = np.hstack((self.state,self.rou_items))
 
         # Allocation matrix
-        self.state = self.rou_agents
-        self.state = np.hstack((self.state,self.rou_items))
-        self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
-
-        # # Price-allocation matrix
         # self.state = self.rou_agents
         # self.state = np.hstack((self.state,self.rou_items))
         # self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
-        # self.state = np.hstack((self.state,self.price_allocation_matrix.flatten()))
+
+        # # Price-allocation matrix
+        self.state = self.rou_agents
+        self.state = np.hstack((self.state,self.rou_items))
+        self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
+        self.state = np.hstack((self.state,self.price_allocation_matrix.flatten()))
         return self.state
 
     def render(self):
