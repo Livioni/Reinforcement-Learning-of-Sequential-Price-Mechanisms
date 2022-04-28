@@ -118,18 +118,25 @@ class InventoryEnv(gym.Env):
             else:
                 self.price[ele] = 9 #如果商品已经售出则标价99 agent买不起。
 
+        # for i in range(self.items_num):
+        #     utility.append(self.valuationF[self.agent][i] - self.price[i])
+
+        # max_utility = max(utility)
+        # if max_utility > 0:
+        #     max_index = utility.index(max_utility)
+        #     self.allocation_matrix[self.agent][max_index] = 1
+        #     self.rou_items[max_index] = 0
+        #     self.price_allocation_matrix[self.agent][max_index] = self.price[max_index]
+
+
+        # unit_demand
         for i in range(self.items_num):
-            utility.append(self.valuationF[self.agent][i] - self.price[i])
+            if self.valuationF[self.agent][i] > self.price[i]:
+                self.allocation_matrix[self.agent][i] = 1
+                self.rou_items[i] = 0
 
-        max_utility = max(utility)
-        if max_utility > 0:
-            max_index = utility.index(max_utility)
-            self.allocation_matrix[self.agent][max_index] = 1
-            self.rou_items[max_index] = 0
-            self.price_allocation_matrix[self.agent][max_index] = self.price[max_index]
-
-        self.socialwelfare += self.allocation_matrix[self.agent].dot(self.valuationF[self.agent].T)
-        self.tau[self.agent] = self.allocation_matrix[self.agent].dot(self.price.T)
+        self.socialwelfare += max(self.allocation_matrix[self.agent]*(self.valuationF[self.agent].T))
+        self.tau[self.agent] = max(self.allocation_matrix[self.agent]*(self.price.T))
         self.agent = np.array([self.agent],dtype=np.int16)
 
         self.rou_agents[self.agent] = 0
