@@ -17,3 +17,5 @@ for i in range(100):
         socialwelfare = env.socialwelfare
         print("Episode:",i,"Socialwelfare:",socialwelfare)
         obs = env.reset()
+
+model.save("models/SPM#BDelta=0")

@@ -2,6 +2,7 @@ import numpy as np
 import gym,random
 from torch import rand
 import torch
+from gym import spaces
 from torch.distributions import Categorical
 
 class Stackelberg(gym.Env):
@@ -32,6 +33,15 @@ class Stackelberg(gym.Env):
         self.sample_list_1 = [0.5,1/(2*self.E)]
         self.probabilities_2 = [0.5,0.5]
         self.sample_list_2 = [0,1]
+
+        #Items/agents left
+        self.low_observation = np.zeros(self.agent_num,dtype=np.float32)
+        self.high_observation = 4 * np.ones(self.agent_num,dtype=np.float32)
+        self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
+        self.high_action = np.array([1.,1.,2.5],dtype=np.float32)       
+
+        self.observation_space = spaces.Box(low=self.low_observation, high=self.high_observation,dtype=np.float32)
+        self.action_space = spaces.Box(low=self.low_action,high=self.high_action,dtype=np.float32)
 
         
     def return_dim_info(self):
@@ -72,9 +82,22 @@ class Stackelberg(gym.Env):
     def return_valuation_function(self):
         return  self.valuationF
 
+    def softmax(self,X):
+        X_exp = X.exp() 
+        partition = X_exp.sum(dim=0, keepdim=True) 
+        return X_exp / partition # 这⾥应⽤了⼴播机制
+
     def step(self, action):
-        self.agent = int(action[0])
-        self.price = action[1:]
+        output_agent = action[0:self.agent_num]
+        for j in range(len(output_agent)):
+            output_agent[j] = (output_agent[j]-min(output_agent))/(max(output_agent)-min(output_agent))
+        agent_probs = self.softmax(torch.tensor(output_agent))
+        value,indices = agent_probs.sort(descending=True)
+        agent_ = 0
+        while self.rou_agents[indices[agent_].item()] == 0:
+            agent_ += 1
+        self.agent = indices[agent_].item()
+        self.price = action[self.agent_num:]
 
         for ele in range(len(self.price)):
             if self.rou_items[ele] == 1:

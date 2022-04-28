@@ -3,6 +3,7 @@ import gym,random
 from gym import spaces
 from gym.utils import seeding
 from torch import rand
+import torch
 
 class SPMsEnv(gym.Env):
     metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 30}
@@ -22,7 +23,7 @@ class SPMsEnv(gym.Env):
         self.price = np.ones(self.items_num,dtype=np.float64) #要价矩阵
         self.Z = random.uniform((1-self.delta)/2, (1+self.delta)/2) 
         self.socialwelfare = 0  #初始化social  welfare  
-        ##初始化效用函数
+        #初始化效用函数
         # self.valuationF = np.zeros([self.agent_num,self.items_num],dtype=np.float64)
         # for i in range(self.agent_num):
         #     for j in range(self.items_num):
@@ -51,7 +52,7 @@ class SPMsEnv(gym.Env):
                         [0.73727425,0.13167262,0.73926587,0.41809112,0.55647347]],dtype=np.float32)
 
         #delta = 0.34
-        # self.valuationF=np.array([[0.28746766,0.11773536,0.06417870,0.21074364,0.47814521],\
+        # self.valuationF = np.array([[0.28746766,0.11773536,0.06417870,0.21074364,0.47814521],\
         #                 [0.52800661,0.19562626,0.24214131,0.63061773,0.58011432],\
         #                 [0.25686938,0.27776415,0.07730791,0.40525655,0.43227341],\
         #                 [0.60449626,0.36269815,0.21132956,0.47090524,0.40805888],\
@@ -72,25 +73,48 @@ class SPMsEnv(gym.Env):
         #                 [0.61405565,0.07927069,0.37009645,0.28577439,0.63793179],\
         #                 [0.54774761,0.36121875,0.46010207,0.22939186,0.46555167]],dtype=np.float32)
 
+        #delta = 0.5
+        # self.valuationF = np.array([[0.25159252,0.18747832,0.52274581,0.53431728,0.29150147],\
+        #                 [0.30454641,0.15446334,0.36009465,0.45553153,0.47398406],\
+        #                 [0.08256483,0.15139087,0.15990434,0.21714165,0.44508508],\
+        #                 [0.36762362,0.15586214,0.53398466,0.11823556,0.28558539],\
+        #                 [0.63302932,0.62944887,0.62305320,0.53576186,0.58203394],\
+        #                 [0.30685801,0.25027946,0.43980843,0.13498102,0.5496846,],\
+        #                 [0.14414590,0.25575996,0.24504715,0.20924005,0.46913949],\
+        #                 [0.57461670,0.21538934,0.59676913,0.32594070,0.49376681],\
+        #                 [0.57957993,0.31912487,0.20996115,0.20517993,0.19527656],\
+        #                 [0.52820112,0.28744063,0.53120483,0.35223527,0.4420883,],\
+        #                 [0.10581372,0.43962944,0.13140474,0.41332264,0.72749107],\
+        #                 [0.22941611,0.39760445,0.26688504,0.67670137,0.39658991],\
+        #                 [0.56763521,0.42476405,0.38575731,0.48942985,0.54157965],\
+        #                 [0.13954233,0.22075036,0.60474268,0.08556397,0.44658105],\
+        #                 [0.08666319,0.46507240,0.11432523,0.57462553,0.40328793],\
+        #                 [0.13508565,0.72703675,0.36811400,0.11287362,0.41840946],\
+        #                 [0.21864852,0.71776913,0.36739065,0.53518413,0.37141671],\
+        #                 [0.40816788,0.57003468,0.53597568,0.45014885,0.59619485],\
+        #                 [0.46131403,0.69770830,0.23627574,0.14474992,0.23453095],\
+        #                 [0.55712029,0.22348943,0.54729884,0.65933541,0.39223776],\
+        #                 [0.63302932,0.72703675,0.62305320,0.67670137,0.72749107]],dtype=np.float32)
+   
         self.viewer = None
 
         #Items/agents left
-        self.low_observation = np.zeros(self.agent_num + self.items_num,dtype=np.float32)
-        self.high_observation = np.ones(self.agent_num + self.items_num,dtype=np.float32)
-        self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
-        self.high_action = np.ones(self.agent_num+self.items_num,dtype=np.float32)       
+        # self.low_observation = np.zeros(self.agent_num + self.items_num,dtype=np.float32)
+        # self.high_observation = np.ones(self.agent_num + self.items_num,dtype=np.float32)
+        # self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
+        # self.high_action =  np.ones(self.agent_num+self.items_num,dtype=np.float32)       
 
         # Allocation matrix
-        # self.low_observation = np.zeros(self.agent_num + self.items_num + self.items_num,dtype=np.float32)
-        # self.high_observation = np.ones(self.agent_num + self.items_num + self.items_num,dtype=np.float32)
-        # self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
-        # self.high_action = np.ones(self.agent_num+self.items_num,dtype=np.float32)
+        self.low_observation = np.zeros(self.agent_num + self.items_num + self.items_num,dtype=np.float32)
+        self.high_observation = np.ones(self.agent_num + self.items_num + self.items_num,dtype=np.float32)
+        self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
+        self.high_action = 2 * np.ones(self.agent_num+self.items_num,dtype=np.float32)
 
-        # # Price-allocation matrix
+        # Price-allocation matrix
         # self.low_observation = np.zeros(self.agent_num + self.items_num + self.items_num + self.items_num*self.agent_num,dtype=np.float32)
         # self.high_observation = np.ones(self.agent_num + self.items_num + self.items_num + self.items_num*self.agent_num,dtype=np.float32)
         # self.low_action = np.zeros(self.agent_num+self.items_num,dtype=np.float32)
-        # self.high_action = np.ones(self.agent_num+self.items_num,dtype=np.float32)
+        # self.high_action = 10 * np.ones(self.agent_num+self.items_num,dtype=np.float32)
 
         self.observation_space = spaces.Box(low=self.low_observation, high=self.high_observation,dtype=np.float32)
         self.action_space = spaces.Box(low=self.low_action,high=self.high_action,dtype=np.float32)
@@ -117,12 +141,25 @@ class SPMsEnv(gym.Env):
     def return_valuation_function(self):
         return  self.valuationF
 
+    def softmax(self,X):
+        X_exp = X.exp() 
+        partition = X_exp.sum(dim=0, keepdim=True) 
+        return X_exp / partition # 这⾥应⽤了⼴播机制
+
     def step(self, action):
-        self.agent = int(action[0])
-        self.price = action[1:]
+        output_agent = action[0:self.agent_num]
+        for j in range(len(output_agent)):
+            output_agent[j] = (output_agent[j]-min(output_agent))/(max(output_agent)-min(output_agent))
+        agent_probs = self.softmax(torch.tensor(output_agent))
+        value,indices = agent_probs.sort(descending=True)
+        agent_ = 0
+        while self.rou_agents[indices[agent_].item()] == 0:
+            agent_ += 1
+        self.agent = indices[agent_].item()
+        self.price = action[self.agent_num:]
         utility = []
         for ele in range(len(self.price)):
-            self.price_allocation_matrix[self.agent][ele] = self.price[ele]
+            # self.price_allocation_matrix[self.agent][ele] = self.price[ele]
             if self.rou_items[ele] == 1:
                 continue
             else:
@@ -136,13 +173,12 @@ class SPMsEnv(gym.Env):
             max_index = utility.index(max_utility)
             self.allocation_matrix[self.agent][max_index] = 1
             self.rou_items[max_index] = 0
-            # self.price_allocation_matrix[self.agent][max_index] = self.price[max_index]
-
+            self.price_allocation_matrix[self.agent][max_index] = self.price[max_index]
+        
+        self.rou_agents[self.agent] = 0
         self.socialwelfare += self.allocation_matrix[self.agent].dot(self.valuationF[self.agent].T)
         self.tau[self.agent] = self.allocation_matrix[self.agent].dot(self.price.T)
         self.agent = np.array([self.agent],dtype=np.int16)
-
-        self.rou_agents[self.agent] = 0
         done = self.check_done()
         #收益函数：如果是最后一步，则计算整个socialwelfare，如果不是最后一步，则为0；
         if done:
@@ -150,14 +186,14 @@ class SPMsEnv(gym.Env):
         else: 
             reward = 0
 
-        #Items/agents left
-        self.state = self.rou_agents
-        self.state = np.hstack((self.state,self.rou_items))
-
-        # # Allocation matrix
+        # #Items/agents left
         # self.state = self.rou_agents
         # self.state = np.hstack((self.state,self.rou_items))
-        # self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
+
+        # # Allocation matrix
+        self.state = self.rou_agents
+        self.state = np.hstack((self.state,self.rou_items))
+        self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
 
         # # Price-allocation matrix        
         # self.state = self.rou_agents
@@ -181,13 +217,13 @@ class SPMsEnv(gym.Env):
         self.price_allocation_matrix = np.zeros([self.agent_num,self.items_num],dtype=np.float64)
 
         #Items/agents left
-        self.state = self.rou_agents
-        self.state = np.hstack((self.state,self.rou_items))
-
-        # Allocation matrix
         # self.state = self.rou_agents
         # self.state = np.hstack((self.state,self.rou_items))
-        # self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
+
+        # Allocation matrix
+        self.state = self.rou_agents
+        self.state = np.hstack((self.state,self.rou_items))
+        self.state = np.hstack((self.state,self.allocation_matrix[self.agent].flatten()))
 
         # # Price-allocation matrix
         # self.state = self.rou_agents
