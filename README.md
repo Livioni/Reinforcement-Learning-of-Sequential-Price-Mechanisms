@@ -8,31 +8,22 @@ papar *Reinforcement Learning of Sequential Price Mechanisms* unofficial impleme
 
 [Brero G, Eden A, Gerstgrasser M, et al. Reinforcement learning of sequential price mechanisms[C]//Proceedings of the AAAI Conference on Artificial Intelligence. 2021, 35(6): 5219-5227.](https://www.aaai.org/AAAI21Papers/AAAI-8029.BreroG.pdf)
 
-
-
 ## Sequential-Price-Mechanisms
-
-
 
 ![幻灯片2](README.assets/%E5%B9%BB%E7%81%AF%E7%89%872.png)
 
 - Agents :  $[n]=\{1, \ldots, n\}$
-
 - Items : $[m]=\{1, \ldots, m\}$
-
 - valuation function : $v_{i}: 2^{[m]} \rightarrow \mathbb{R}_{\geq 0}$
-
 - Payment : $\boldsymbol{\tau}=\left(\tau_{1}, \ldots, \tau_{n}\right)$
-
 - allocations : $\mathbf{x}=\left(x_{1}, \ldots, x_{n}\right)$
-
 - social welfare : $\operatorname{sw}(\mathbf{x}, \mathbf{v})=\sum_{i \in[n]} v_{i}\left(x_{i}\right)$
 
   **Objective: maximize the expected social welfare**
+
   $$
   $\mathbb{E}_{\mathbf{v} \sim \mathcal{D},(\mathbf{x}, \boldsymbol{\tau}):=\mathcal{M}(\mathbf{v})}[\mathbf{S W}(\mathbf{x}, \mathbf{v})]$
   $$
-  
 
 Initialize : $\rho^{0}=\left(\rho_{\text {agents }}^{0}, \rho_{\text {items }}^{0}\right) = ([n],[m])$, $\mathbf{x}^{0}=(\emptyset, \ldots, \emptyset)$ and $\boldsymbol{\tau}^{0}=(0, \ldots, 0)$.
 
@@ -44,8 +35,6 @@ one mechanism step(round):
 4. The game terminates when no agents or items are left.
 
 ## Learning Optimal SPMs
-
-
 
 The problem of designing an optimal SPM is casted as a POMDP problem.
 
@@ -60,17 +49,15 @@ The problem of designing an optimal SPM is casted as a POMDP problem.
 
   (a). Items/agents left: encoding which items are still available and which agents are still to be considered.
 
-  (b). Allocation matrix: **in addition to items/agents left**, encodes the temporary allocation x tat each round t. 
+  (b). Allocation matrix: **in addition to items/agents left**, encodes the temporary allocation x tat each round t.
 
-  (c). Price-allocation matrix: i**n addition to items/agents left and temporary allocation**, stores an n × m real-valued matrix with the prices the agents have faced so far. 
-
-
+  (c). Price-allocation matrix: i**n addition to items/agents left and temporary allocation**, stores an n × m real-valued matrix with the prices the agents have faced so far.
 
 ## Expiremnts
 
-We first test a setting with 5 multiple identical copies of an item, and 20 agents with unit-demand and correlated values. 
+We first test a setting with 5 multiple identical copies of an item, and 20 agents with unit-demand and correlated values.
 
-For this, we use parameter $0\leq \delta\leq 1$ to control the amount of correlation. 
+For this, we use parameter $0\leq \delta\leq 1$ to control the amount of correlation.
 
 We sample $z \sim U\left[\frac{1-\delta}{2}, \frac{1+\delta}{2}\right]$, and draw $v_{i}$ independently from unif$\left(z-\frac{1-\delta}{2}, z+\frac{1-\delta}{2}\right)$.
 
@@ -98,7 +85,6 @@ We sample $z \sim U\left[\frac{1-\delta}{2}, \frac{1+\delta}{2}\right]$, and dra
                           [0.49674642,0.72062413,0.07787972,0.24753036,0.55676578],\
                         [0.73727425,0.13167262,0.73926587,0.41809112,0.55647347]],dtype=np.float32)
   ```
-
 - Delta = 0.34
 
   ```python
@@ -123,7 +109,6 @@ We sample $z \sim U\left[\frac{1-\delta}{2}, \frac{1+\delta}{2}\right]$, and dra
                           [0.61405565,0.07927069,0.37009645,0.28577439,0.63793179],\
                           [0.54774761,0.36121875,0.46010207,0.22939186,0.46555167]],dtype=np.float32)
   ```
-
 - Delta = 0.5
 
   ```python 
@@ -149,23 +134,72 @@ We sample $z \sim U\left[\frac{1-\delta}{2}, \frac{1+\delta}{2}\right]$, and dra
                           [0.54774761,0.36121875,0.46010207,0.22939186,0.46555167]],dtype=np.float32)
   ```
 
- using Stable_baseline3 lib
+### Invalid Action Masking Technique
 
-### maximize social welfare
+This trick comes from [Invalid Action Masking](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/) 4th Auxiliary implementation details to avoid invalid agent which has already been visited.
 
-![截屏2022-04-28 12.19.35](README.assets/%E6%88%AA%E5%B1%8F2022-04-28%2012.19.35.png)
+```python
+class CategoricalMasked(Categorical):
+    def __init__(self, probs=None, logits=None, validate_args=None, masks=[]):
+        self.masks = masks
+        if len(self.masks) == 0:
+            super(CategoricalMasked, self).__init__(probs, logits, validate_args)
+        else:
+            self.masks = masks.type(torch.BoolTensor)
+            logits = torch.where(self.masks, logits, torch.tensor(-1e8))
+            super(CategoricalMasked, self).__init__(probs, logits, validate_args)
 
-![截屏2022-04-28 12.19.58](README.assets/%E6%88%AA%E5%B1%8F2022-04-28%2012.19.58.png)
+    def entropy(self):
+        if len(self.masks) == 0:
+            return super(CategoricalMasked, self).entropy()
+        p_log_p = self.logits * self.probs
+        p_log_p = torch.where(self.masks, p_log_p, torch.tensor(0.0))
+        return -p_log_p.sum(-1)
+```
 
-![截屏2022-04-28 12.20.40](README.assets/%E6%88%AA%E5%B1%8F2022-04-28%2012.20.40.png)
 
 
+```python
+def get_action_and_value(self, x, action_mask, action=None):
+        action_mean = self.actor_mean(x)
+        #第一部分：选择agent
+        logits = action_mean[:,0:envs.envs[0].agent_num]
+        if action is None:
+            split_logits = torch.split(logits, envs.num_envs, dim=0)
+            split_action_masks = torch.split(action_mask, envs.num_envs, dim=0)
+        else:
+            split_logits = logits
+            split_action_masks = action_mask
+        multi_categoricals = [
+            CategoricalMasked(logits=logits, masks=iam) for (logits, iam) in zip(split_logits, split_action_masks)
+        ]
+        if action is None:
+            agent = torch.stack([categorical.sample() for categorical in multi_categoricals])
+        else: 
+            agent = action[:,0:1]
+        logprob_1 = torch.stack([categorical.log_prob(a) for a, categorical in zip(agent, multi_categoricals)]).squeeze(0)
+        entropy_1 = torch.stack([categorical.entropy() for categorical in multi_categoricals]).squeeze(0)
+        #第二部分：出价
+        price_mean = action_mean[:,envs.envs[0].agent_num:]
+        price_logstd = self.actor_logstd.expand_as(price_mean)
+        price_std = torch.exp(price_logstd)
+        probs = Normal(price_mean, price_std)
+        if action is None:
+            price = probs.sample()
+            logprob_2 = probs.log_prob(price).sum(1)
+        else:
+            price = action[:,1:]
+            logprob_2 = probs.log_prob(price).sum(1).unsqueeze(0).reshape([-1,1])
+        entropy_2 = probs.entropy().sum(1)
+        if action is None:
+            action = torch.cat((agent.T,price),dim=1)
+        endprobs = logprob_1 + logprob_2
+        endentropy = entropy_1 + entropy_2
+        return action, endprobs, endentropy, self.critic(x)
+```
 
+### objective: maxmize social welfare
 
+Delta = 0
 
-The following experiments are for the agent to select only one item, which has been corrected in the latest code. 
-
-![截屏2022-04-28 12.14.06](README.assets/%E6%88%AA%E5%B1%8F2022-04-28%2012.14.06.png)
-
-### maximize payment
-
+![截屏2022-05-14 10.48.48](README.assets/%E6%88%AA%E5%B1%8F2022-05-14%2010.48.48.png)
