@@ -38,11 +38,11 @@ def parse_args():
     # Algorithm specific arguments
     parser.add_argument("--env-id", type=str, default="SPMsEnv-v0",
         help="the id of the environment")
-    parser.add_argument("--total-timesteps", type=int, default=3e6,
+    parser.add_argument("--total-timesteps", type=int, default=5e5,
         help="total timesteps of the experiments")
     parser.add_argument("--learning-rate", type=float, default=2.5e-4,
         help="the learning rate of the optimizer")
-    parser.add_argument("--num-envs", type=int, default=6,
+    parser.add_argument("--num-envs", type=int, default=1,
         help="the number of parallel game environments")
     parser.add_argument("--num-steps", type=int, default=128,
         help="the number of steps to run in each environment per policy rollout")
@@ -139,9 +139,19 @@ class Agent(nn.Module):
         )
 
         self.actor_logstd = nn.Parameter(torch.zeros(1, envs.envs[0].items_num))
+        self.checkpoint_path_1 = "runs/PPO_preTrained/" + "PPO_critic.pth"
+        self.checkpoint_path_2 = "runs/PPO_preTrained/" + "PPO_actor.pth"
 
     def get_value(self, x):
         return self.critic(x)
+    
+    def save(self):
+        torch.save(self.critic.state_dict(), self.checkpoint_path_1)
+        torch.save(self.actor_mean.state_dict(), self.checkpoint_path_2)
+
+    def load(self):
+        self.critic.load_state_dict(torch.load(self.checkpoint_path_1, map_location=lambda storage, loc: storage))
+        self.actor_mean.load_state_dict(torch.load(self.checkpoint_path_2, map_location=lambda storage, loc: storage))
 
     def get_action_and_value(self, x, action_mask, action=None):
         action_mean = self.actor_mean(x)
@@ -217,6 +227,7 @@ if __name__ == "__main__":
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
     agent = Agent(envs).to(device)
+    agent.load()
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -256,7 +267,6 @@ if __name__ == "__main__":
             actions[step] = action
             logprobs[step] = logprob
             
-
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, done, info = envs.step(action.cpu().numpy())
             rewards[step] = torch.tensor(reward).to(device).view(-1)
@@ -269,7 +279,12 @@ if __name__ == "__main__":
                         print(f"global_step={global_step}, episodic_return={item['episode']['r']}")
                         writer.add_scalar("charts/episodic_return", item["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", item["episode"]["l"], global_step)
-                        writer.add_scalar("chart/prices",sum(envs.envs[0].tau),global_step)
+                        writer.add_scalar("charts/prices 0",sum(envs.envs[0].tau),global_step)
+                        writer.add_scalar("Prices/prices 1",envs.envs[0].record_price[0],global_step)
+                        writer.add_scalar("Prices/prices 2",envs.envs[0].record_price[1],global_step)
+                        writer.add_scalar("Prices/prices 3",envs.envs[0].record_price[2],global_step)
+                        writer.add_scalar("Prices/prices 4",envs.envs[0].record_price[3],global_step)
+                        writer.add_scalar("Prices/prices 5",envs.envs[0].record_price[4],global_step)
                         counter = 0
                     break
 
@@ -382,6 +397,6 @@ if __name__ == "__main__":
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
 
-
+    agent.save()
     envs.close()
     writer.close()
