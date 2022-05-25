@@ -136,7 +136,7 @@ We sample $z \sim U\left[\frac{1-\delta}{2}, \frac{1+\delta}{2}\right]$, and dra
 
 ### Invalid Action Masking Technique
 
-This trick comes from [Invalid Action Masking](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/) 4th Auxiliary implementation details to avoid invalid agent which has already been visited.
+This trick comes from [Invalid Action Masking](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/) 4th 'Auxiliary implementation details' to avoid invalid agent which has already been visited.
 
 ```python
 class CategoricalMasked(Categorical):
@@ -203,3 +203,4 @@ def get_action_and_value(self, x, action_mask, action=None):
 Delta = 0
 
 ![截屏2022-05-14 10.48.48](README.assets/%E6%88%AA%E5%B1%8F2022-05-14%2010.48.48.png)
+
