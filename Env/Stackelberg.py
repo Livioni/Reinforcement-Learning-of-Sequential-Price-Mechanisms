@@ -1,6 +1,5 @@
 import numpy as np
 import gym,random
-from torch import rand
 import torch
 from gym import spaces
 from torch.distributions import Categorical
