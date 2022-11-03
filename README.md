@@ -14,7 +14,7 @@ papar *Reinforcement Learning of Sequential Price Mechanisms* unofficial impleme
 
 - Env/SPMsEnv.py is the environment of  *Part 1: Correlated Value Experiments (Welfare).* in the original paper, register it in gym.
 - SB3SPM.py use OpenAI Stable Baselines library. (Dependency: [Stable Baselines3](https://github.com/DLR-RM/stable-baselines3))
-- ppo_continuous_action.py is another all-in-one script based on cleanrl. (Dependency: [CleanRL](CleanRL (Clean Implementation of RL Algorithms)))
+- ppo_continuous_action.py is another all-in-one script based on cleanrl. (Dependency: [CleanRL](https://github.com/vwxyzjn/cleanrl))
 
 ## Sequential-Price-Mechanisms
 
